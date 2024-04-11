@@ -23,6 +23,7 @@ class Server:
         self.sock.bind((const_cs.HOST, const_cs.PORT))
         self.sock.settimeout(3)  # time out in order not to block forever
         self._logger.info("Server bound to socket " + str(self.sock))
+        self.api = TelephoneApiServer()
 
     def serve(self):
         """ Serve echo """
@@ -31,17 +32,59 @@ class Server:
             try:
                 # pylint: disable=unused-variable
                 (connection, address) = self.sock.accept()  # returns new socket and address of client
+                self._logger.info(f"Client connected on socket {self.sock}")
                 while True:  # forever
+                    self._logger.info("Receiving data on socket")
                     data = connection.recv(1024)  # receive data from client
                     if not data:
                         break  # stop if client stopped
-                    connection.send(data + "*".encode('ascii'))  # return sent data plus an "*"
+                    data_out = self.api.handleRequest(data.decode('ascii'))
+                    connection.send(data_out.encode('ascii')) 
+                    self._logger.info("Sending response")
                 connection.close()  # close the connection
+                self._logger.info("Connection closed")
             except socket.timeout:
                 pass  # ignore timeouts
         self.sock.close()
         self._logger.info("Server down.")
 
+class TelephoneApiServer:
+    _logger = logging.getLogger("vs2lab.a1_layers.clientserver.TelephoneApiServer")
+
+    _names = {"Test":"+4917212345678"}
+    _commands = ["get", "getall"]
+
+    def getCommandAndArgs(self, msg:str):
+        split = msg.split("#")
+        args = []
+        if len(split) > 1:
+            args = split[1].split(",")
+        return (split[0], args)
+
+    def handleRequest(self, req:str):
+        command, args = self.getCommandAndArgs(req)          
+        match command:
+            case "":
+                return self.echo()
+            case "get":
+                return self.getName(args[0])
+            case "getall":
+                return self.getAllNames()
+            case _:
+                self._logger.error(f"Undefined command: {command}")
+                return ""
+            
+    def echo(self, msg):
+        return msg+"*"
+
+    def getName(self, name):
+        return self._names.get(name)
+    
+    def getAllNames(self):
+        names = []
+        for name in self._names:
+            names.append(f"{name}:{self._names.get(name)};")
+        return str(names)
 
 class Client:
     """ The client """
@@ -62,6 +105,35 @@ class Client:
         self.logger.info("Client down.")
         return msg_out
 
+    def sendRequest(self, req:str):
+        self.sock.send(req.encode('ascii'))
+        self.logger.info("Request sent")
+        res = self.sock.recv(1024)
+        data = res.decode('ascii')
+        self.logger.info("Response received")
+        return data
+
     def close(self):
         """ Close socket """
         self.sock.close()
+        self.logger.info("Client down")
+        return
+
+class TelephoneApi:
+    _logger = logging.getLogger("vs2lab.a1_layers.clientserver.TelephoneApi")
+
+    def __init__(self):
+        self.client = Client()
+    
+    def getWithName(self, name):
+        request = f"get#{name}"
+        telephone_out = self.client.sendRequest(request)
+        return telephone_out
+    
+    def getAllNumbers(self): 
+        request = "getall#"
+        data = self.client.sendRequest(request)
+        return data
+    
+    def disconnect(self):
+        self.client.close()
