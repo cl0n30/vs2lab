@@ -125,12 +125,12 @@ class TelephoneApi:
     def __init__(self):
         self.client = Client()
     
-    def getWithName(self, name):
+    def get(self, name):
         request = f"get#{name}"
         telephone_out = self.client.sendRequest(request)
         return telephone_out
     
-    def getAllNumbers(self): 
+    def getAll(self): 
         request = "getall#"
         data = self.client.sendRequest(request)
         return data
