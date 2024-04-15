@@ -17,13 +17,13 @@ class Server:
     _logger = logging.getLogger("vs2lab.lab1.clientserver.Server")
     _serving = True
 
-    def __init__(self):
+    def __init__(self, dictSize=1):
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)  # prevents errors due to "addresses in use"
         self.sock.bind((const_cs.HOST, const_cs.PORT))
         self.sock.settimeout(3)  # time out in order not to block forever
         self._logger.info("Server bound to socket " + str(self.sock))
-        self.api = TelephoneApiServer()
+        self.api = TelephoneApiServer(dictSize=dictSize)
 
     def serve(self):
         """ Serve echo """
@@ -39,8 +39,8 @@ class Server:
                     if not data:
                         break  # stop if client stopped
                     data_out = self.api.handleRequest(data.decode('ascii'))
+                    self._logger.info(f"Sending response {data_out}")
                     connection.send(data_out.encode('ascii')) 
-                    self._logger.info("Sending response")
                 connection.close()  # close the connection
                 self._logger.info("Connection closed")
             except socket.timeout:
@@ -51,8 +51,12 @@ class Server:
 class TelephoneApiServer:
     _logger = logging.getLogger("vs2lab.a1_layers.clientserver.TelephoneApiServer")
 
-    _names = {"Test":"+4917212345678"}
+    _names = {"user0": "+490"}
     _commands = ["get", "getall"]
+    
+    def __init__(self, dictSize=1):
+        for i in range(dictSize):
+            self._names.update({f"user{i}": f"+49{i}"})
 
     def getCommandAndArgs(self, msg:str):
         split = msg.split("#")
@@ -63,28 +67,28 @@ class TelephoneApiServer:
 
     def handleRequest(self, req:str):
         command, args = self.getCommandAndArgs(req)          
-        match command:
-            case "":
-                return self.echo()
+        match command:                
             case "get":
-                return self.getName(args[0])
+                return self.getNumber(args[0])
             case "getall":
-                return self.getAllNames()
+                return self.getAllNumbers()
             case _:
-                self._logger.error(f"Undefined command: {command}")
-                return ""
+                return self.echo(command)
             
     def echo(self, msg):
         return msg+"*"
 
-    def getName(self, name):
-        return self._names.get(name)
+    def getNumber(self, name):
+        number = self._names.get(name)
+        if (number == None):
+            return ""
+        return number
     
-    def getAllNames(self):
-        names = []
+    def getAllNumbers(self):
+        numbers = ""
         for name in self._names:
-            names.append(f"{name}:{self._names.get(name)};")
-        return str(names)
+            numbers+=f"{name}:{self._names.get(name)};"
+        return numbers
 
 class Client:
     """ The client """
@@ -107,10 +111,10 @@ class Client:
 
     def sendRequest(self, req:str):
         self.sock.send(req.encode('ascii'))
-        self.logger.info("Request sent")
+        self.logger.info(f"Request sent {req}")
         res = self.sock.recv(1024)
         data = res.decode('ascii')
-        self.logger.info("Response received")
+        self.logger.info(f"Response received {data}")
         return data
 
     def close(self):
@@ -132,8 +136,9 @@ class TelephoneApi:
     
     def getAll(self): 
         request = "getall#"
-        data = self.client.sendRequest(request)
-        return data
+        names = self.client.sendRequest(request)
+        names = names[:-1] #remove last ';'
+        return names.split(";")
     
     def disconnect(self):
         self.client.close()
