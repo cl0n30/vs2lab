@@ -37,7 +37,41 @@ class TestEchoService(unittest.TestCase):
     def tearDownClass(cls):
         cls._server._serving = False  # break out of server loop. pylint: disable=protected-access
         cls._server_thread.join()  # wait for server thread to terminate
-
+        
+class TestTelephoneService(unittest.TestCase):
+    _server = clientserver.Server(10)
+    _server_thread = threading.Thread(target=_server.serve)
+    
+    @classmethod
+    def setUpClass(cls):
+        cls._server_thread.start()
+        
+    def setUp(self):
+        super().setUp()
+        self.api = clientserver.TelephoneApi()
+        
+    def test_api_get(self):
+        name = "user0"
+        number = self.api.get(name)
+        self.assertEqual(number, "+490")
+        
+    def test_api_get2(self):
+        name = "user9"
+        number = self.api.get(name)
+        self.assertEqual(number, "+499")
+        
+    def test_api_getAll(self):
+        numbers = self.api.getAll()
+        print(numbers)
+        self.assertEqual(10, len(numbers))
+        
+    def tearDown(self):
+        self.api.disconnect()
+        
+    @classmethod
+    def tearDownClass(cls):
+        cls._server._serving = False
+        cls._server_thread.join()
 
 if __name__ == '__main__':
     unittest.main()
