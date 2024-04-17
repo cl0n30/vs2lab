@@ -39,11 +39,10 @@ class TestEchoService(unittest.TestCase):
         cls._server_thread.join()  # wait for server thread to terminate
         
 class TestTelephoneService(unittest.TestCase):
-    _server = clientserver.Server(10)
-    _server_thread = threading.Thread(target=_server.serve)
-    
     @classmethod
     def setUpClass(cls):
+        cls._server = clientserver.Server(10)
+        cls._server_thread = threading.Thread(target=cls._server.serve)
         cls._server_thread.start()
         
     def setUp(self):
@@ -72,6 +71,31 @@ class TestTelephoneService(unittest.TestCase):
     def tearDownClass(cls):
         cls._server._serving = False
         cls._server_thread.join()
+        
+class TestServerApi(unittest.TestCase):
+    def setUp(self):
+        super().setUp()
+        self.api = clientserver.TelephoneApiServer(2)
+        
+    def test_getNumber(self):
+        name = "user0"
+        expected = "+490"
+        self.assertEqual(expected, self.api.getNumber(name))
+        
+    def test_api_get_none(self):
+        name = "nonexistant"
+        self.assertEqual("No number", self.api.getNumber(name))
+        
+    def test_getAllNumbers(self):
+        expected = "user0:+490;user1:+491"
+        self.assertEqual(expected, self.api.getAllNumbers())
+        
+    def test_echo(self):
+        expected = "Hello World*"
+        self.assertEqual(expected, self.api.echo("Hello World"))
+        
+    def tearDown(self):
+        return super().tearDown()
 
 if __name__ == '__main__':
     unittest.main()
