@@ -59,9 +59,13 @@ class TestTelephoneService(unittest.TestCase):
         number = self.api.get(name)
         self.assertEqual(number, "+499")
         
+    def test_api_get_none(self):
+        name = "nonexistant"
+        number = self.api.get(name)
+        self.assertEqual("No number", number)
+        
     def test_api_getAll(self):
         numbers = self.api.getAll()
-        print(numbers)
         self.assertEqual(10, len(numbers))
         
     def tearDown(self):
