@@ -86,8 +86,11 @@ class TelephoneApiServer:
     
     def getAllNumbers(self):
         numbers = ""
-        for name in self._names:
-            numbers+=f"{name}:{self._names.get(name)};"
+        for i, name in enumerate(self._names):
+            if (i == len(self._names)-1):
+                numbers+=f"{name}:{self._names.get(name)}"
+            else:
+                numbers+=f"{name}:{self._names.get(name)};"
         return numbers
 
 class Client:
@@ -137,7 +140,6 @@ class TelephoneApi:
     def getAll(self): 
         request = "getall#"
         names = self.client.sendRequest(request)
-        names = names[:-1] #remove last ';'
         return names.split(";")
     
     def disconnect(self):
