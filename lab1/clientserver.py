@@ -81,7 +81,7 @@ class TelephoneApiServer:
     def getNumber(self, name):
         number = self._names.get(name)
         if (number == None):
-            return ""
+            return "No number"
         return number
     
     def getAllNumbers(self):
