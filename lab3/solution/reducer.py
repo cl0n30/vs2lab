@@ -36,7 +36,6 @@ print("{} started".format(me))
 
 while True:
     word = pickle.loads(pull_socket.recv())  # receive word from a source
-    #print("{} received word {} for reducer {}".format(me, word[1], word[0]))
-    if (str(word[0]) == id):
-      countWord(word[1])
+    #print("{} received word {} from {}".format(me, word[1], word[0]))
+    countWord(word[1])
     

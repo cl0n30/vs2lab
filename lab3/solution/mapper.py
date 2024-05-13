@@ -37,9 +37,9 @@ def sendToReducer(words:list[str]):
     reducer = (len(word) % 2) + 1
     print("send to reducer {}".format(reducer))
     if reducer == 1:
-      push_socket1.send(pickle.dumps((reducer, word)))
+      push_socket1.send(pickle.dumps((me, word)))
     else:
-      push_socket2.send(pickle.dumps((reducer, word)))
+      push_socket2.send(pickle.dumps((me, word)))
   
 time.sleep(1) 
 
