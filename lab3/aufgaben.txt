@@ -1,0 +1,11 @@
+3.1: Nachrichten werden von send() in eine queue im Zmq Socket gepackt, welche erst durch das receive vom Server abgearbeitet wird.
+Solange das erste send() nicht erfolgreich war werden weitere sends nicht ausgeführt.
+
+3.2: Experiment 1: Beide Clients erhalten die selbe vom Server gesendete Uhrzeit TIME zur selben Zeit, da beide auf die TIME Nachrichten subscribed sind.
+Experiment 2: Der erste Client zeigt die vom Server gesendete Zeit TIME und der zweite Client zeigt das gesendete Datum DATE an, da beide Clients auf unterschiedliche Messages TIME und DATE subscribed sind
+
+3.3: Experiment 1: Die Farmer pushen alle Workloads auf den Socket und beenden ihre Ausführung. 
+Der eine Worker führt dann abwechselnd einen zufälligen Task von Farmer 1 und 2 aus, da es nur einen Worker gibt. Er pulled diesen Task von dem verbundenen Socket.
+Experiment 2: Die Worker warten bis der Farmer Workloads auf den Socket pusht und führen diese dann geteilt aus. 
+Jeder Worker nimmt sich einen zufälligen Task aus dem Socket und bearbeitet diesen, ohne das ein Task doppelt ausgeführt wird.
+(Bei mehreren Farmern werden erst die Tasks ausgeführt welche zuerst auf den Socket gepusht wurden, vom schnelleren/zuerst ausgeführten Farmer)
