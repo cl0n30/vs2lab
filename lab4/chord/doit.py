@@ -10,6 +10,7 @@ Chord Application
 import logging
 import sys
 import multiprocessing as mp
+import random
 
 import chordnode as chord_node
 import constChord
@@ -21,18 +22,40 @@ lab_logging.setup(stream_level=logging.INFO)
 class DummyChordClient:
     """A dummy client template with the channel boilerplate"""
 
-    def __init__(self, channel):
+    def __init__(self, channel:lab_channel.Channel):
         self.channel = channel
         self.node_id = channel.join('client')
+        self.n_bits = channel.n_bits
 
     def enter(self):
         self.channel.bind(self.node_id)
 
     def run(self):
-        print("Implement me pls...")
+        #send lookup req
+        print(f"key range = 0-{2**self.n_bits - 1}")
+        node = self.getRandomValidNode()
+        key = self.getRandomValidKey()
+        print(f"lookup key {key} from node {node}")
+        self.channel.send_to({node}, (constChord.LOOKUP_REQ, key, self.node_id))
+        rep = self.channel.receive_from_any()
+        print(f"lookup response {rep}")
+        msg = rep[1]
+        if msg[0] == constChord.LOOKUP_REP:
+            succ = msg[1]
+            print(f"successor with key {key} is {succ}")
+        
         self.channel.send_to(  # a final multicast
             {i.decode() for i in list(self.channel.channel.smembers('node'))},
             constChord.STOP)
+    
+    def getRandomValidKey(self):
+        max = 2**self.n_bits - 1
+        return random.randrange(0, max)
+    
+    def getRandomValidNode(self):
+        nodes = {i.decode() for i in list(self.channel.channel.smembers('node'))}
+        return random.choice(list(nodes))
+        
 
 
 def create_and_run(num_bits, node_class, enter_bar, run_bar):

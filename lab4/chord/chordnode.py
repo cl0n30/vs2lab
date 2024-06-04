@@ -11,14 +11,14 @@ Simple implementation of a chord DHT (distributed hash table)
 import logging
 
 import constChord
-
+from context import lab_channel
 
 class ChordNode:
     """
     Implementation of a chord ring node
     """
 
-    def __init__(self, channel):
+    def __init__(self, channel: lab_channel.Channel):
         """
         :param channel: a communication chanel instance to be used
         """
@@ -150,13 +150,28 @@ class ChordNode:
                 self.logger.info("Node {:04n} received LOOKUP {:04n} from {:04n}."
                                  .format(self.node_id, int(request[1]), int(sender)))
 
+                # self.lookupSender = sender
+                lookupSender = request[2] #original sender (client) id for end recursion
                 # look up and return local successor 
                 next_id: int = self.local_successor_node(request[1])
-                self.channel.send_to([sender], (constChord.LOOKUP_REP, next_id))
+                if (next_id == self.node_id): #node responsible
+                    print(f"lookup successful {self.node_id}")
+                    self.logger.info("Node {:04n} sending LOOKUP REP {:04n} to {:04n}."
+                                 .format(self.node_id, int(next_id), int(lookupSender)))
+                    self.channel.send_to({str(lookupSender)}, (constChord.LOOKUP_REP, next_id))
+                else:
+                    #new lookup in successor
+                    print(f"new lookup for {request[1]} in {next_id}")
+                    self.channel.send_to({str(next_id)}, (constChord.LOOKUP_REQ, request[1], lookupSender))
 
                 # Finally do a sanity check
                 if not self.channel.exists(next_id):  # probe for existence
                     self.delete_node(next_id)  # purge disappeared node
+
+            # elif request[0] == constChord.LOOKUP_REP: #A lookup response
+            #     self.logger.info("Node {:04n} sending LOOKUP REP {:04n} to {:04n}."
+            #                      .format(self.node_id, int(request[1]), int(self.lookupSender)))
+            #     self.channel.send_to([self.lookupSender], (constChord.LOOKUP_REP, request[1]))
 
             elif request[0] == constChord.JOIN:
                 # Join request (the node was already registered above)
