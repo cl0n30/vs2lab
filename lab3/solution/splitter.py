@@ -7,7 +7,7 @@ import countConst
 
 me = "split"
 
-f = open("words2.txt", "r")
+f = open("words.txt", "r")
 
 src = countConst.SPLITSRC 
 prt = countConst.SPLITPORT
