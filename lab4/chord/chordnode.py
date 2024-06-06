@@ -154,6 +154,13 @@ class ChordNode:
                 lookupSender = request[2] #original sender (client) id for end recursion
                 # look up and return local successor 
                 next_id: int = self.local_successor_node(request[1])
+
+                # Finally do a sanity check
+                if not self.channel.exists(next_id):  # probe for existence
+                    self.delete_node(next_id)  # purge disappeared node
+                    print(f"Error: node {next_id} does not exist")
+                    continue
+
                 if (next_id == self.node_id): #node responsible
                     print(f"lookup successful {self.node_id}")
                     self.logger.info("Node {:04n} sending LOOKUP REP {:04n} to {:04n}."
@@ -163,11 +170,6 @@ class ChordNode:
                     #new lookup in successor
                     print(f"new lookup for {request[1]} in {next_id}")
                     self.channel.send_to({str(next_id)}, (constChord.LOOKUP_REQ, request[1], lookupSender))
-
-                # Finally do a sanity check
-                if not self.channel.exists(next_id):  # probe for existence
-                    self.delete_node(next_id)  # purge disappeared node
-
             # elif request[0] == constChord.LOOKUP_REP: #A lookup response
             #     self.logger.info("Node {:04n} sending LOOKUP REP {:04n} to {:04n}."
             #                      .format(self.node_id, int(request[1]), int(self.lookupSender)))
