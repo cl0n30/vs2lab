@@ -3,7 +3,7 @@ import random
 import time
 
 from constMutex import ENTER, RELEASE, ALLOW
-
+from context import lab_channel
 
 class Process:
     """
@@ -33,7 +33,7 @@ class Process:
     """
 
     def __init__(self, chan):
-        self.channel = chan  # Create ref to actual channel
+        self.channel:lab_channel.Channel = chan  # Create ref to actual channel
         self.process_id = self.channel.join('proc')  # Find out who you are
         self.all_processes: list = []  # All procs in the proc group
         self.other_processes: list = []  # Needed to multicast to others
@@ -93,6 +93,7 @@ class Process:
          # Pick up any message
         _receive = self.channel.receive_from(self.other_processes, 10) 
         if _receive:
+            #(sender, (sender_clock, sender, request))
             msg = _receive[1]
 
             self.clock = max(self.clock, msg[0])  # Adjust clock value...
@@ -118,6 +119,21 @@ class Process:
             self.__cleanup_queue()  # Finally sort and cleanup the queue
         else:        
             self.logger.warning("{} timed out on RECEIVE.".format(self.__mapid()))
+            self.handle_crashed_process()
+
+    def handle_crashed_process(self):
+        crashed = self.queue[0][1]
+        
+        self.logger.info("{}: {} crashed. Removing in from process list".format(self.__mapid(), self.__mapid(crashed)))
+        
+        self.other_processes.remove(crashed)
+        
+        # self.logger.info("{}: queue: {}".format(self.__mapid(), self.queue))
+        self.logger.info("{}: Removing messages of crashed {} from queue".format(self.__mapid(), self.__mapid(crashed)))
+        
+        for msg in self.queue:
+            if msg[1] == str(crashed):
+                self.queue.remove(msg)
 
     def init(self):
         self.channel.bind(self.process_id)
