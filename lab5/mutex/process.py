@@ -5,6 +5,8 @@ import time
 from constMutex import ENTER, RELEASE, ALLOW
 from context import lab_channel
 
+TIMEOUT_MAX = 4
+
 class Process:
     """
     Implements access management to a critical section (CS) via fully
@@ -40,6 +42,7 @@ class Process:
         self.queue = []  # The request queue list
         self.clock = 0  # The current logical clock
         self.logger = logging.getLogger("vs2lab.lab5.mutex.process.Process")
+        self.suspect_crashed = ""
 
     def __mapid(self, id='-1'):
         # resolve channel member address to a human friendly identifier
@@ -91,7 +94,7 @@ class Process:
 
     def __receive(self):
          # Pick up any message
-        _receive = self.channel.receive_from(self.other_processes, 10) 
+        _receive = self.channel.receive_from(self.other_processes, TIMEOUT_MAX) 
         if _receive:
             #(sender, (sender_clock, sender, request))
             msg = _receive[1]
@@ -112,28 +115,39 @@ class Process:
             elif msg[2] == ALLOW:
                 self.queue.append(msg)  # Append an ALLOW
             elif msg[2] == RELEASE:
+                sender = msg[1]
                 # assure release requester indeed has access (his ENTER is first in queue)
-                assert self.queue[0][1] == msg[1] and self.queue[0][2] == ENTER, 'State error: inconsistent remote RELEASE'
+                assert self.queue[0][1] == sender and self.queue[0][2] == ENTER, 'State error: inconsistent remote RELEASE'
+                if (self.suspect_crashed != ""):
+                    assert sender == self.suspect_crashed, f'Suspected crashed process {self.__mapid(self.suspect_crashed)} is not sender {self.__mapid(sender)}'  
+                    self.logger.info("{}: {} still alive. Continuing...".format(self.__mapid(), self.__mapid(sender)))
+                    self.suspect_crashed = ""
+                    
                 del (self.queue[0])  # Just remove first message
 
             self.__cleanup_queue()  # Finally sort and cleanup the queue
         else:        
             self.logger.warning("{} timed out on RECEIVE.".format(self.__mapid()))
-            self.handle_crashed_process()
+            if self.suspect_crashed == "":
+                self.__check_for_crash()
+            else:
+                self.__handle_crashed_process()
 
-    def handle_crashed_process(self):
-        crashed = self.queue[0][1]
+    def __handle_crashed_process(self):
+        crashed = self.suspect_crashed
         
         self.logger.info("{}: {} crashed. Removing in from process list".format(self.__mapid(), self.__mapid(crashed)))
-        
         self.other_processes.remove(crashed)
         
-        # self.logger.info("{}: queue: {}".format(self.__mapid(), self.queue))
         self.logger.info("{}: Removing messages of crashed {} from queue".format(self.__mapid(), self.__mapid(crashed)))
-        
         for msg in self.queue:
             if msg[1] == str(crashed):
                 self.queue.remove(msg)
+        self.suspect_crashed = ""
+                
+    def __check_for_crash(self):
+        self.suspect_crashed = self.queue[0][1]
+        self.logger.info("{}: {} potentially crashed.".format(self.__mapid(), self.__mapid(self.suspect_crashed)))
 
     def init(self):
         self.channel.bind(self.process_id)
@@ -162,11 +176,12 @@ class Process:
                     self.__receive()
 
                 # Stay in CS for some time ...
-                sleep_time = random.randint(0, 2000)
+                sleep_time = random.randint(0, TIMEOUT_MAX*1000)
                 self.logger.debug("{} enters CS for {} milliseconds."
                     .format(self.__mapid(), sleep_time))
                 print(" CS <- {}".format(self.__mapid()))
-                time.sleep(sleep_time/1000)
+                # simulate long computation
+                time.sleep(sleep_time/500)
 
                 # ... then leave CS
                 print(" CS -> {}".format(self.__mapid()))
