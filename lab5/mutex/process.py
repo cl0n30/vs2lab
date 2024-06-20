@@ -2,7 +2,7 @@ import logging
 import random
 import time
 
-from constMutex import ENTER, RELEASE, ALLOW
+from constMutex import ENTER, RELEASE, ALLOW, SUSPECT
 from context import lab_channel
 
 TIMEOUT_MAX = 4
@@ -124,6 +124,9 @@ class Process:
                     self.suspect_crashed = ""
                     
                 del (self.queue[0])  # Just remove first message
+            elif msg[2] == SUSPECT:
+                self.suspect_crashed = msg[1]
+                self.logger.info("{}: New crash suspect: {}".format(self.__mapid(), self.__mapid(self.suspect_crashed)))
 
             self.__cleanup_queue()  # Finally sort and cleanup the queue
         else:        
@@ -146,8 +149,21 @@ class Process:
         self.suspect_crashed = ""
                 
     def __check_for_crash(self):
-        self.suspect_crashed = self.queue[0][1]
-        self.logger.info("{}: {} potentially crashed.".format(self.__mapid(), self.__mapid(self.suspect_crashed)))
+        if (self.queue[0][1] == self.process_id):
+            allows = [r for r in self.queue[1:] if r[2] == ALLOW]
+            allowProc = self.other_processes.copy()
+            for a in allows:
+                allowProc.remove(a[1])
+            
+            sus = allowProc[0]
+                
+            self.clock = self.clock +1
+            msg = (self.clock, sus, SUSPECT)
+            self.suspect_crashed = sus
+            self.channel.send_to(self.other_processes, msg)
+        else:
+            self.suspect_crashed = self.queue[0][1]
+            self.logger.info("{}: {} potentially crashed.".format(self.__mapid(), self.__mapid(self.suspect_crashed)))
 
     def init(self):
         self.channel.bind(self.process_id)
@@ -176,12 +192,12 @@ class Process:
                     self.__receive()
 
                 # Stay in CS for some time ...
-                sleep_time = random.randint(0, TIMEOUT_MAX*1000)
+                sleep_time = random.randint(0, TIMEOUT_MAX*900)
                 self.logger.debug("{} enters CS for {} milliseconds."
                     .format(self.__mapid(), sleep_time))
                 print(" CS <- {}".format(self.__mapid()))
                 # simulate long computation
-                time.sleep(sleep_time/500)
+                time.sleep((2*sleep_time)/1000)
 
                 # ... then leave CS
                 print(" CS -> {}".format(self.__mapid()))
